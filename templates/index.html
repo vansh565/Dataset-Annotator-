@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vertex · Local Annotation</title>
+<link rel="icon" href="data:," />
+<link rel="stylesheet" href="/static/css/style.css?v=2026092201" />
+</head>
+<body>
+<div id="app">
+
+  <!-- ============================================================
+       TOP BAR
+       ============================================================ -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo">V</div>
+      <div class="brand-name">Vertex</div>
+      <div class="brand-tag">local annotation</div>
+    </div>
+
+    <div class="topbar-spacer"></div>
+
+    <div class="project-switch">
+      <label for="project-select">Project</label>
+      <select id="project-select"></select>
+      <button id="btn-new-project" class="btn mini primary" title="New project">+</button>
+    </div>
+
+    <span id="device-info" class="chip"><span class="dot"></span>Device: —</span>
+    <span id="save-status" class="chip chip-ok"><span class="dot"></span>Auto saved</span>
+  </header>
+
+  <!-- ============================================================
+       MAIN AREA  (sidebar | page | right-sidebar)
+       ============================================================ -->
+  <div class="main" id="main">
+
+    <!-- LEFT SIDEBAR ------------------------------------------ -->
+    <aside class="sidebar left">
+      <nav class="nav" id="nav">
+
+        <div class="nav-section">Data</div>
+
+        <div class="nav-item" data-page="dataset">
+          <svg class="ico" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+          </svg>
+          <span>Dataset</span>
+          <span class="badge" id="nav-dataset-count">0</span>
+        </div>
+
+        <div class="nav-item" data-page="annotate">
+          <svg class="ico" viewBox="0 0 24 24">
+            <path d="M3 3h7v7H3z"/>
+            <path d="M14 14l7 7"/>
+            <path d="M3 21h7v-7H3z"/>
+            <circle cx="17.5" cy="6.5" r="3.5"/>
+          </svg>
+          <span>Annotate</span>
+        </div>
+
+        <div class="nav-section">Model</div>
+
+        <div class="nav-item" data-page="versions">
+          <svg class="ico" viewBox="0 0 24 24">
+            <path d="M12 3v18"/>
+            <path d="M3 12h18"/>
+            <circle cx="12" cy="12" r="9"/>
+          </svg>
+          <span>Versions</span>
+          <span class="badge" id="nav-versions-count">0</span>
+        </div>
+
+        <div class="nav-item" data-page="train">
+          <svg class="ico" viewBox="0 0 24 24">
+            <path d="M4 20V10"/>
+            <path d="M10 20V4"/>
+            <path d="M16 20v-8"/>
+            <path d="M22 20h-20"/>
+          </svg>
+          <span>Train</span>
+        </div>
+
+        <div class="nav-item" data-page="models">
+          <svg class="ico" viewBox="0 0 24 24">
+            <path d="M12 2 3 7v10l9 5 9-5V7z"/>
+            <path d="M3 7l9 5 9-5"/>
+            <path d="M12 22V12"/>
+          </svg>
+          <span>Models</span>
+        </div>
+
+        <div class="nav-section">Insights</div>
+
+        <div class="nav-item" data-page="analytics">
+          <svg class="ico" viewBox="0 0 24 24">
+            <path d="M3 3v18h18"/>
+            <path d="M7 15l4-4 3 3 5-6"/>
+          </svg>
+          <span>Analytics</span>
+        </div>
+
+        <div class="nav-item" data-page="quality">
+          <svg class="ico" viewBox="0 0 24 24">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+          <span>Quality</span>
+        </div>
+
+        <div class="nav-item" data-page="export">
+          <svg class="ico" viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <path d="M17 8l-5-5-5 5"/>
+            <path d="M12 3v12"/>
+          </svg>
+          <span>Export</span>
+        </div>
+
+        <div class="nav-item" data-page="settings">
+          <svg class="ico" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>
+          </svg>
+          <span>Settings</span>
+        </div>
+        <div class="nav-item" data-page="classes">
+          <svg class="ico" viewBox="0 0 24 24">
+            <path d="M4 5h16M4 12h16M4 19h10"/><circle cx="18" cy="19" r="2"/>
+          </svg>
+          <span>Classes &amp; Tags</span>
+        </div>
+
+      </nav>
+    </aside>
+
+    <!-- PAGE HOST --------------------------------------------- -->
+    <main id="page-container" class="page-host"></main>
+
+    <!-- RIGHT SIDEBAR (only visible in editor) ---------------- -->
+    <aside class="sidebar right hidden" id="right-sidebar">
+      <div class="props">
+
+        <h4>Annotation</h4>
+        <div id="props-empty" class="muted">No annotation selected</div>
+        <div id="annotation-list" class="list"></div>
+        <div id="props-body" class="hidden"
+             style="display:flex;flex-direction:column;gap:10px">
+          <label class="fld">Type
+            <input id="prop-type" class="input" disabled />
+          </label>
+          <label class="fld">Class
+            <select id="prop-class" class="input"></select>
+          </label>
+          <div class="row">
+            <label class="fld">X
+              <input id="prop-x" class="input" type="number" step="0.0001"/>
+            </label>
+            <label class="fld">Y
+              <input id="prop-y" class="input" type="number" step="0.0001"/>
+            </label>
+          </div>
+          <div class="row">
+            <label class="fld">W
+              <input id="prop-w" class="input" type="number" step="0.0001"/>
+            </label>
+            <label class="fld">H
+              <input id="prop-h" class="input" type="number" step="0.0001"/>
+            </label>
+          </div>
+          <label class="fld">Confidence
+            <input id="prop-conf" class="input" type="number" step="0.01"/>
+          </label>
+          <button id="btn-delete-ann" class="btn danger">Delete annotation</button>
+        </div>
+
+        <h4 style="margin-top:12px">Classes</h4>
+        <ul id="class-list" class="list"></ul>
+        <button id="btn-add-class" class="btn mini"
+                style="align-self:flex-start">+ Add class</button>
+
+        <h4 style="margin-top:12px">Review</h4>
+        <div class="row">
+          <button id="btn-mark-reviewed" class="btn mini">Reviewed ✓</button>
+          <button id="btn-mark-unreviewed" class="btn mini">Unreviewed</button>
+        </div>
+
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ============================================================
+       STATUS BAR
+       ============================================================ -->
+  <footer class="statusbar">
+    <div class="seg"><b>Project:</b> <span id="status-project">—</span></div>
+    <div class="seg mid" id="status-middle">—</div>
+    <div class="seg"><b>Anns:</b> <span id="status-anns">0</span></div>
+    <div class="seg"><b>Zoom:</b> <span id="status-zoom">100%</span></div>
+  </footer>
+
+</div>
+
+<!-- ============================================================
+     MODALS
+     ============================================================ -->
+<div id="modal-new-project" class="modal hidden">
+  <div class="modal-box">
+    <h3>New project</h3>
+    <p class="desc">Everything stays on your machine.</p>
+    <label class="fld">Name
+      <input id="np-name" class="input" placeholder="car_detection" />
+    </label>
+    <label class="fld">Description
+      <input id="np-desc" class="input" placeholder="optional" />
+    </label>
+    <div class="modal-actions">
+      <button id="np-cancel" class="btn">Cancel</button>
+      <button id="np-create" class="btn primary">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast host -->
+<div id="toasts" class="toasts"></div>
+
+<!-- ============================================================
+     SCRIPTS  (order matters: app.js must be last)
+     ============================================================ -->
+<script src="/static/js/api.js?v=2026092301"></script>
+<script src="/static/js/ui.js"></script>
+<script src="/static/js/canvas.js"></script>
+<script src="/static/js/tools.js"></script>
+<script src="/static/js/pages/dataset.js?v=2026092201"></script>
+<script src="/static/js/pages/annotate.js?v=2026092202"></script>
+<script src="/static/js/pages/versions.js?v=2"></script>
+<script src="/static/js/pages/models.js"></script>
+<script src="/static/js/pages/analytics.js?v=2"></script>
+<script src="/static/js/pages/quality.js"></script>
+<script src="/static/js/pages/export.js?v=2026092301"></script>
+<script src="/static/js/pages/settings.js"></script>
+<script src="/static/js/pages/classes.js?v=3"></script>
+<script src="/static/js/app.js?v=2"></script>
+</body>
+</html>
