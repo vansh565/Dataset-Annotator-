@@ -47,11 +47,19 @@
             </div></div>
             <div class="version-step"><span class="step-number">3</span><div class="step-content">
               <div class="step-title">Preprocessing <button class="link-btn" id="v-add-prep">+ Add</button></div>
-              <p class="muted">Optional local transforms applied during export. Originals are never modified.</p>
+              <p class="muted">Transforms are applied to every image saved in this version. Project originals stay unchanged.</p>
               <div id="v-preprocessing" class="prep-list">
                 <div class="prep-row"><b>Auto-orient</b><span class="muted">Normalize image orientation</span><button class="link-btn" data-remove-prep>×</button></div>
                 <div class="prep-row" data-prep="resize"><b>Resize</b><span class="muted">Stretch to</span><input class="input prep-size" type="number" min="32" value="224" /><span class="muted">×</span><input class="input prep-size" type="number" min="32" value="224" /><button class="link-btn" data-remove-prep>×</button></div>
               </div>
+              <label class="fld" style="max-width:280px;margin-top:12px">Version image format
+                <select id="v-image-format" class="input">
+                  <option value="original">Keep each original format</option>
+                  <option value="JPEG">Convert all to JPG</option>
+                  <option value="PNG">Convert all to PNG</option>
+                </select>
+              </label>
+              <p class="muted">Conversion applies only to the version copy. Source images stay unchanged.</p>
             </div></div>
             <div class="version-step"><span class="step-number">4</span><div class="step-content">
               <div class="step-title">Augmentation <button class="link-btn" id="v-add-aug">+ Add augmentation</button></div>
@@ -159,7 +167,12 @@
       if (!updateTotal()) return U.toast("Split percentages must total 100%", "warn");
       const button = document.getElementById("v-create");
       button.disabled = true;
-      document.getElementById("v-status").textContent = "Creating local version…";
+      const hasResize = prepData().some(function (item) { return item.name === "Resize"; });
+      const imageFormat = document.getElementById("v-image-format").value;
+      const hasFormatConversion = imageFormat !== "original";
+      document.getElementById("v-status").textContent = hasResize || hasFormatConversion
+        ? "Preparing images and creating the dataset version…"
+        : "Creating the dataset version…";
       try {
         const sourceImages = await window.API.listImages(state.project);
         const annotatedCount = sourceImages.filter(function (image) {
@@ -168,8 +181,12 @@
         if (!annotatedCount) throw new Error("There are no annotated images to include.");
         const v = await window.API.createVersion(state.project, name.value.trim(), {
           split: { train: Number(vTrain.value) / 100, val: Number(vVal.value) / 100, test: Number(vTest.value) / 100 },
-          preprocessing: prepData(), augmentations: augData()
+          preprocessing: prepData(), augmentations: augData(), image_format: imageFormat
         });
+        if (hasFormatConversion && String(v.image_format || "original").toUpperCase() !== imageFormat) {
+          try { await window.API.deleteVersion(state.project, v.id); } catch (ignored) { /* explain server mismatch below */ }
+          throw new Error("The local server has not loaded image format conversion yet. Restart the app server, then create the version again.");
+        }
         // The local Flask server runs without auto-reload. Reject a snapshot
         // from an older server process if it included unannotated images.
         if (Number(v.images) !== annotatedCount) {
@@ -177,7 +194,10 @@
           throw new Error("The local server returned " + v.images + " images, but only " + annotatedCount + " are annotated. Restart the app server, then create the version again.");
         }
         U.toast(v.name + " created", "ok");
-        document.getElementById("v-status").textContent = v.name + " created and ready for export.";
+        document.getElementById("v-status").textContent = v.name + " created with " + v.images +
+          " version images" + (hasResize ? " resized" : "") +
+          (hasFormatConversion ? " converted to " + (imageFormat === "JPEG" ? "JPG" : "PNG") : "") +
+          " and ready to download or train.";
         refresh();
       } catch (e) {
         document.getElementById("v-status").textContent = "Could not create version.";
@@ -220,9 +240,10 @@
             const split = version.split || { train: 0.7, val: 0.2, test: 0.1 };
             const prep = (version.preprocessing || []).map(function (entry) { return entry.name; }).join(", ") || "None";
             const aug = (version.augmentations || []).map(function (entry) { return entry.name; }).join(", ") || "None";
+            const imageFormat = version.image_format === "JPEG" ? "JPG" : (version.image_format || "Original formats");
             const detail = document.getElementById("v-version-detail");
             detail.classList.remove("hidden");
-            const versionFilenames = new Set(version.image_filenames || []);
+            const versionFilenames = new Set(version.source_image_filenames || version.image_filenames || []);
             const versionImages = version.image_filenames
               ? (state.images || []).filter(function (image) { return versionFilenames.has(image.filename); })
               : annotatedImages.slice(0, version.images);
@@ -236,7 +257,7 @@
               '<div class="detail-section-label">Dataset Split</div><div class="detail-split"><div class="split-card train"><span>TRAIN SET</span><b>' + (version.split_counts ? version.split_counts.train : Math.floor(split.train * version.images)) + ' images</b><i>' + Math.round(split.train * 100) + '%</i></div>' +
               '<div class="split-card valid"><span>VALID SET</span><b>' + (version.split_counts ? version.split_counts.val : Math.floor(split.val * version.images)) + ' images</b><i>' + Math.round(split.val * 100) + '%</i></div>' +
               '<div class="split-card test"><span>TEST SET</span><b>' + (version.split_counts ? version.split_counts.test : version.images - Math.floor(split.train * version.images) - Math.floor(split.val * version.images)) + ' images</b><i>' + Math.round(split.test * 100) + '%</i></div></div>' +
-              '<div class="detail-summary"><div><span>Preprocessing</span><b>' + U.escapeHtml(prep) + '</b></div><div><span>Augmentations</span><b>' + U.escapeHtml(aug) + '</b></div></div>';
+              '<div class="detail-summary"><div><span>Preprocessing</span><b>' + U.escapeHtml(prep) + '</b></div><div><span>Image format</span><b>' + U.escapeHtml(imageFormat) + '</b></div><div><span>Augmentations</span><b>' + U.escapeHtml(aug) + '</b></div></div>';
             document.getElementById("v-detail-download").onclick = async function () {
               openDownloadDialog(version);
             };
