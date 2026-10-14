@@ -41,14 +41,31 @@
       if (!state.project) return U.toast("Select a project", "warn");
       body.innerHTML = `<div class="empty"><h3>Running…</h3></div>`;
       try {
-        const r = await window.API.quality(state.project);
+        const results = await Promise.all([
+          window.API.quality(state.project),
+          window.API.listImages(state.project)
+        ]);
+        const r = results[0];
+        const images = results[1] || [];
         const counts = {};
         r.issues.forEach(function (issue) { counts[issue.kind] = (counts[issue.kind] || 0) + 1; });
+        const formatCounts = {};
+        images.forEach(function (image) {
+          const filename = image.filename || "";
+          const dot = filename.lastIndexOf(".");
+          const extension = dot >= 0 ? filename.slice(dot).toLowerCase() : "(no extension)";
+          formatCounts[extension] = (formatCounts[extension] || 0) + 1;
+        });
+        const formats = Object.entries(formatCounts);
+        const formatText = formats.length
+          ? formats.map(function (entry) { return U.escapeHtml(entry[0]) + ": " + entry[1]; }).join(" · ")
+          : "No images";
         let html =
           `<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));margin-bottom:16px">` +
           `<div class="card" style="padding:14px"><b style="font-size:22px;color:var(--err)">${r.summary.errors}</b><div class="muted">Errors</div></div>` +
           `<div class="card" style="padding:14px"><b style="font-size:22px;color:var(--warn)">${r.summary.warnings}</b><div class="muted">Warnings</div></div>` +
           `<div class="card" style="padding:14px"><b style="font-size:22px">${r.summary.images_checked || 0}</b><div class="muted">Images checked</div></div>` +
+          `<div class="card" style="padding:14px"><b>Image formats</b><div class="muted" style="margin-top:6px">${formatText}</div></div>` +
           `<div class="card" style="padding:14px"><b style="font-size:22px">${r.summary.total}</b><div class="muted">Total findings</div></div></div>` +
           `<h3 style="margin:0 0 10px">Checks</h3><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));margin-bottom:20px">` +
           checks.map(function (check) {
