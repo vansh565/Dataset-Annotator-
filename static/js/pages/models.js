@@ -38,6 +38,7 @@
             (m.kind === "sam" || m.name.toLowerCase().indexOf("sam2") === 0 ?
               '<span class="chip chip-warn">Smart Selection</span>' :
               '<button class="btn mini" data-path="' + U.escapeHtml(m.path) + '">Load</button>') +
+            (Number(m.size) > 0 ? '<button class="btn mini danger" data-delete-model="' + U.escapeHtml(m.name) + '">Delete model</button>' : '') +
             '</div>';
         }
         body.innerHTML = html;
@@ -57,6 +58,23 @@
               }
             };
           })(btns[j]);
+        }
+        var deleteBtns = body.querySelectorAll("[data-delete-model]");
+        for (var k = 0; k < deleteBtns.length; k++) {
+          (function (b) {
+            b.onclick = async function () {
+              if (!window.confirm("Delete " + b.dataset.deleteModel + " from the models folder?")) return;
+              b.disabled = true;
+              try {
+                await window.API.deleteModel(b.dataset.deleteModel);
+                U.toast("Deleted model: " + b.dataset.deleteModel, "ok");
+                refresh();
+              } catch (e) {
+                b.disabled = false;
+                U.toast("Could not delete model: " + e.message, "err");
+              }
+            };
+          })(deleteBtns[k]);
         }
       } catch (e) {
         body.innerHTML =
