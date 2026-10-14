@@ -112,19 +112,63 @@
       this.state = "idle";
       this.start = null;
       this.preview = null;
+      this.editing = null;
     }
     onDown(ev) {
+      const hit = this.canvas && this.canvas._hitTest(ev.px, ev.py);
+      if (hit) {
+        const alreadySelected = hit.id === this.canvas.selectedId;
+        this.canvas.setSelected(hit.id);
+        this.state = "idle";
+        this.start = null;
+        this.preview = null;
+        const annotation = this.canvas.getSelected();
+        if (alreadySelected && annotation && annotation.type === "polygon" && /^p\d+$/.test(hit.part)) {
+          this.canvas.onEditStart();
+          this.editing = { kind: "vertex", id: annotation.id,
+            index: parseInt(hit.part.slice(1), 10) };
+        } else if (alreadySelected && annotation && annotation.type === "polygon" && hit.part === "body") {
+          this.canvas.onEditStart();
+          this.editing = { kind: "move", id: annotation.id, lastX: ev.nx, lastY: ev.ny };
+        }
+        return;
+      }
       this.state = "drawing";
       this.start = { nx: ev.nx, ny: ev.ny };
       this.preview = { kind: "box", x1: ev.nx, y1: ev.ny,
                        x2: ev.nx, y2: ev.ny };
     }
     onMove(ev) {
+      if (this.editing) {
+        const annotation = this.canvas.annotations.find((item) => item.id === this.editing.id);
+        if (annotation && annotation.type === "polygon") {
+          if (this.editing.kind === "vertex") {
+            const point = annotation.points[this.editing.index];
+            if (point) annotation.points[this.editing.index] = [clamp(ev.nx, 0, 1), clamp(ev.ny, 0, 1)];
+          } else {
+            const xs = annotation.points.map(function (point) { return point[0]; });
+            const ys = annotation.points.map(function (point) { return point[1]; });
+            const dx = clamp(ev.nx - this.editing.lastX, -Math.min.apply(null, xs), 1 - Math.max.apply(null, xs));
+            const dy = clamp(ev.ny - this.editing.lastY, -Math.min.apply(null, ys), 1 - Math.max.apply(null, ys));
+            annotation.points.forEach(function (point) { point[0] += dx; point[1] += dy; });
+            this.editing.lastX = ev.nx;
+            this.editing.lastY = ev.ny;
+          }
+          this.canvas.render();
+        }
+        return;
+      }
       if (this.state !== "drawing") return;
       this.preview.x2 = ev.nx;
       this.preview.y2 = ev.ny;
     }
     onUp(ev) {
+      if (this.editing) {
+        this.editing = null;
+        this.canvas.onChange();
+        this.canvas.render();
+        return;
+      }
       if (this.state !== "drawing") return;
       const s = this.start;
       const startX = clamp(s.nx, 0, 1);
