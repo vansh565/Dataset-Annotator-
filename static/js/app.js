@@ -37,6 +37,7 @@
     versions: "Versions",
     train: "Train",
     models: "Models",
+    "test-model": "Test Model",
     analytics: "Analytics",
     quality: "Quality",
     export: "Export",
