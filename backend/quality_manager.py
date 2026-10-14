@@ -169,10 +169,13 @@ def run_checks(project: str) -> dict:
     exact_hashes: dict[str, list[str]] = defaultdict(list)
     difference_hashes: dict[str, int] = {}
     label_counts: dict[str, int] = {}
+    image_formats: dict[str, int] = defaultdict(int)
 
     for row in rows:
         filename = row["filename"]
         image_path = p / "images" / filename
+        extension = image_path.suffix.lower() or "(no extension)"
+        image_formats[extension] += 1
         label_path = p / "labels" / (Path(filename).stem + ".txt")
         label_counts[filename] = _label_checks(filename, label_path, class_ids,
                                                 issues, boxes_by_image)
@@ -232,6 +235,7 @@ def run_checks(project: str) -> dict:
         "total": len(issues),
         "images_checked": len(rows),
         "labels_checked": len(label_counts),
+        "image_formats": dict(sorted(image_formats.items())),
     }
     return {"summary": summary, "issues": issues}
 
