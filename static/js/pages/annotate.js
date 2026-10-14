@@ -120,6 +120,13 @@
                 </label>
               </div>
 
+              <div class="smart-select-row">
+                <label class="smart-select-field">
+                  <span>Selected annotation class:</span>
+                  <select class="smart-select-input" id="smart-select-class" aria-label="Class for smart selection"></select>
+                </label>
+              </div>
+
               <div class="smart-select-segments">
                 <button class="segment-toggle active" id="smart-select-polygon" type="button">Polygon</button>
                 <button class="segment-toggle" id="smart-select-pixels" type="button">Pixels</button>
@@ -141,7 +148,7 @@
               </div>
 
               <div class="smart-select-actions primary">
-                <button type="button" id="smart-select-delete" class="smart-select-delete">Delete</button>
+                <button type="button" id="smart-select-delete" class="smart-select-delete">Remove annotation</button>
                 <button type="button" id="smart-select-finish" class="smart-select-finish">Finish (Enter)</button>
               </div>
             </div>
@@ -175,6 +182,52 @@
         onEditStart: function () { pushHistory(); }
       }
     );
+
+    function updateSmartClassSelect() {
+      const select = document.getElementById("smart-select-class");
+      if (!select) return;
+      select.innerHTML = "";
+      if (!state.classes.length) {
+        const empty = document.createElement("option");
+        empty.value = "";
+        empty.textContent = "No classes available";
+        select.appendChild(empty);
+        select.disabled = true;
+        return;
+      }
+      select.disabled = false;
+      state.classes.forEach(function (item) {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = item.name;
+        select.appendChild(option);
+      });
+      const selectedClass = state.classes.some(function (item) { return String(item.id) === String(state.activeClassId); })
+        ? state.activeClassId : state.classes[0].id;
+      select.value = String(selectedClass);
+      state.activeClassId = Number(selectedClass);
+    }
+
+    const smartClassSelect = document.getElementById("smart-select-class");
+    smartClassSelect.onchange = function (e) {
+      const classId = parseInt(e.target.value, 10);
+      if (!Number.isFinite(classId)) return;
+      state.activeClassId = classId;
+      let a = canvas.getSelected();
+      // Keep the class change attached to the annotation the user was
+      // working on if canvas hit testing did not leave an explicit selection.
+      if (!a && canvas.hoveredId != null) {
+        a = canvas.annotations.find(function (item) {
+          return String(item.id) === String(canvas.hoveredId);
+        }) || null;
+        if (a) canvas.setSelected(a.id);
+      }
+      if (!a) return;
+      a.class_id = classId;
+      canvas.render();
+      canvas.onChange();
+    };
+    updateSmartClassSelect();
     window.__canvas = canvas;
 
     // Force a resize after the layout settles. Fixes 0×0 containers.
@@ -242,9 +295,7 @@
       redo();
     };
     document.getElementById("smart-select-delete").onclick = function () {
-      if (document.getElementById("btn-delete-ann")) {
-        document.getElementById("btn-delete-ann").click();
-      }
+      deleteSelectedAnnotation();
     };
     document.getElementById("smart-select-finish").onclick = async function () {
       try {
@@ -390,6 +441,16 @@
       }
       pe.classList.toggle("hidden", !!a);
       pb.classList.toggle("hidden", !a);
+      const smartClass = document.getElementById("smart-select-class");
+      if (smartClass) {
+        smartClass.disabled = !state.classes.length;
+        if (a) smartClass.value = String(a.class_id);
+        else if (state.classes.length && !state.classes.some(function (item) { return String(item.id) === smartClass.value; })) {
+          smartClass.value = String(state.activeClassId || state.classes[0].id);
+        }
+      }
+      const smartDelete = document.getElementById("smart-select-delete");
+      if (smartDelete) smartDelete.disabled = !a;
       const cnt = document.getElementById("status-anns");
       if (cnt) cnt.textContent = canvas.annotations.length;
       if (!a) return;
@@ -443,21 +504,32 @@
       };
     });
     const delBtn = document.getElementById("btn-delete-ann");
+    function deleteSelectedAnnotation() {
+      let a = canvas.getSelected();
+      if (!a && canvas.hoveredId != null) {
+        a = canvas.annotations.find(function (item) {
+          return String(item.id) === String(canvas.hoveredId);
+        }) || null;
+      }
+      if (!a) return;
+      if (canvas.selectedId !== a.id) canvas.setSelected(a.id);
+      pushHistory();
+      canvas.annotations = canvas.annotations.filter(function (item) {
+        return item.id !== a.id;
+      });
+      canvas.setSelected(null);
+      canvas.render();
+      refreshProps();
+      autosave();
+    }
     if (delBtn) {
-      delBtn.onclick = function () {
-        const a = canvas.getSelected(); if (!a) return;
-        canvas.annotations = canvas.annotations.filter(function (x) {
-          return x.id !== a.id;
-        });
-        canvas.setSelected(null);
-        canvas.render();
-        autosave();
-      };
+      delBtn.onclick = deleteSelectedAnnotation;
     }
 
     // --- Classes panel -----------------------------------------
     function renderClasses() {
       const ul = document.getElementById("class-list");
+      updateSmartClassSelect();
       if (!ul) return;
       ul.innerHTML = "";
       state.classes.forEach(function (c) {
@@ -522,9 +594,9 @@
           color: "hsl(" + hue + ",70%,55%)"
         });
         await window.API.saveClasses(state.project, state.classes);
+        state.activeClassId = id;
         renderClasses();
         canvas.setClasses(state.classes);
-        state.activeClassId = id;
       };
     }
 
@@ -553,20 +625,39 @@
     document.getElementById("an-save-next").onclick = async function () {
       try {
         await saveNow();
-        // Keep the annotation queue focused on images that still need labels.
+        // Continue forward from the image the user opened, wrapping only when
+        // needed. This preserves the starting point even when it was picked
+        // directly from the Dataset grid.
         const savedImage = state.currentImage;
         state.dataset = state.dataset || {};
         state.dataset.unannotated = true;
-        const remaining = await window.API.listImages(state.project, "", true);
-        state.images = remaining;
-        const next = remaining.find(function (image) { return image.filename !== savedImage; });
+        const orderedImages = await window.API.listImages(state.project);
+        if (state.dataset.sort === "anns") {
+          orderedImages.sort(function (a, b) {
+            return (b.ann_count || 0) - (a.ann_count || 0) || a.filename.localeCompare(b.filename);
+          });
+        } else {
+          orderedImages.sort(function (a, b) { return a.filename.localeCompare(b.filename); });
+        }
+        state.images = orderedImages;
+        const currentIndex = orderedImages.findIndex(function (image) { return image.filename === savedImage; });
+        let next = null;
+        for (let offset = 1; offset <= orderedImages.length; offset++) {
+          const index = (currentIndex + offset + orderedImages.length) % orderedImages.length;
+          const candidate = orderedImages[index];
+          if (candidate.filename !== savedImage && (candidate.ann_count || 0) === 0) {
+            next = candidate;
+            break;
+          }
+        }
         if (next) {
           state.currentImage = next.filename;
           await loadImage(next.filename);
           U.toast("Saved. Opened the next unannotated image.", "ok");
         } else {
           state.currentImage = null;
-          U.toast(remaining.length ? "Saved. No other unannotated images remain." : "Saved. All images are annotated.", "ok");
+          const unannotatedCount = orderedImages.filter(function (image) { return (image.ann_count || 0) === 0; }).length;
+          U.toast(unannotatedCount ? "Saved. No other unannotated images remain." : "Saved. All images are annotated.", "ok");
           annotationBoard(host, state);
         }
       } catch (e) { U.toast("Save failed: " + e.message, "err"); }
@@ -637,6 +728,8 @@
         U.toast("Added " + r.added + " " + kind, "ok");
         pushHistory();
         canvas.setAnnotations(r.annotations);
+        const selectedAnnotation = r.new_annotations[r.new_annotations.length - 1];
+        if (selectedAnnotation) canvas.setSelected(selectedAnnotation.id);
         showAiReview(r.annotations.slice(0, r.annotations.length - r.added));
         refreshProps();
       } catch (e) { U.toast("Auto annotate failed: " + e.message, "err"); }
@@ -685,11 +778,13 @@
       if (!state.smartModelReady) {
         return U.toast("Smart Selection is still loading; try again in a moment", "warn");
       }
+      const selectedClassId = parseInt(document.getElementById("smart-select-class").value, 10);
+      if (!Number.isFinite(selectedClassId)) return U.toast("Add a class before saving a Smart Select annotation", "warn");
       try {
         const payload = {
           filename: state.currentImage,
           model_path: state.smartModelPath,
-          class_id: state.activeClassId || 0
+          class_id: selectedClassId
         };
         if (prompt.type === "box") {
           payload.box = [
@@ -720,6 +815,16 @@
       const tag = (e.target.tagName || "").toLowerCase();
       if (tag === "input" || tag === "textarea" ||
           tag === "select" || e.target.isContentEditable) return;
+      if (pendingAi && e.key === "Enter") {
+        e.preventDefault();
+        document.getElementById("an-ai-accept").click();
+        return;
+      }
+      if (pendingAi && e.key === "Escape") {
+        e.preventDefault();
+        document.getElementById("an-ai-reject").click();
+        return;
+      }
       if (e.key === "b" || e.key === "B") setTool("box");
       else if (e.key === "p" || e.key === "P") setTool("polygon");
       else if (e.key === "ArrowRight" || e.key === "n" || e.key === "N") loadImageByOffset(+1);
