@@ -18,7 +18,10 @@ VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv"}
 
 
 def _db(name: str) -> sqlite3.Connection:
-    con = sqlite3.connect(project_path(name) / "annotations.db")
+    # Imports and UI refreshes can touch the same project at nearly the same
+    # time. Wait for an in-flight write instead of failing immediately.
+    con = sqlite3.connect(project_path(name) / "annotations.db", timeout=30)
+    con.execute("PRAGMA busy_timeout = 30000")
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
     columns = {row[1] for row in con.execute("PRAGMA table_info(images)")}
@@ -84,16 +87,36 @@ def import_files(project: str, paths: Iterable[str]) -> dict:
     return {"added": added, "skipped": skipped}
 
 
-def import_zip(project: str, zip_path: str) -> dict:
+def import_zip(project: str, zip_path) -> dict:
+    # Paths pasted from Explorer or copied from a quoted command are often
+    # wrapped in matching quotes. Those quotes are not part of the filename.
+    if hasattr(zip_path, "read"):
+        archive = zip_path
+    else:
+        zip_path = str(zip_path).strip().strip('"').strip("'")
+        if not zip_path:
+            raise ValueError("Choose a ZIP file to import.")
+        archive_path = Path(zip_path).expanduser()
+        if not archive_path.is_file():
+            raise FileNotFoundError(f"ZIP file not found: {archive_path}")
+        archive = archive_path
     p = project_path(project)
     imgs_dir = p / "images"
-    con = _db(project)
     added = skipped = 0
-    with zipfile.ZipFile(zip_path) as zf:
+    annotated = 0
+    with zipfile.ZipFile(archive) as zf:
+        # YOLO archives commonly store labels beside images in train/labels,
+        # valid/labels, or labels. Match by image stem after flattening paths.
+        labels_by_stem = {}
+        for info in zf.infolist():
+            member = Path(info.filename.replace("\\", "/"))
+            if not info.is_dir() and member.suffix.lower() == ".txt" and "labels" in member.parts:
+                labels_by_stem[member.stem.casefold()] = zf.read(info).decode("utf-8-sig", errors="replace")
+        con = _db(project)
         for info in zf.infolist():
             if info.is_dir():
                 continue
-            name = Path(info.filename).name
+            name = Path(info.filename.replace("\\", "/")).name
             ext = Path(name).suffix.lower()
             if ext not in IMAGE_EXTS:
                 skipped += 1
@@ -120,9 +143,40 @@ def import_zip(project: str, zip_path: str) -> dict:
             )
             added += 1
             _make_thumb(target, _thumb_path(project, target.name))
+            label_text = labels_by_stem.get(Path(name).stem.casefold())
+            if label_text is not None:
+                anns = []
+                for line in label_text.splitlines():
+                    parts = line.split()
+                    if len(parts) < 5:
+                        continue
+                    try:
+                        cid = int(parts[0])
+                        vals = list(map(float, parts[1:]))
+                    except ValueError:
+                        continue
+                    if len(vals) == 4:
+                        cx, cy, w, h = vals
+                        anns.append({"type": "box", "class_id": cid, "confidence": 1.0,
+                                     "x": cx - w / 2, "y": cy - h / 2, "w": w, "h": h})
+                    elif len(vals) >= 6 and len(vals) % 2 == 0:
+                        anns.append({"type": "polygon", "class_id": cid, "confidence": 1.0,
+                                     "points": list(zip(vals[0::2], vals[1::2]))})
+                if anns:
+                    image_row = con.execute("SELECT id FROM images WHERE filename=?", (target.name,)).fetchone()
+                    con.executemany(
+                        "INSERT INTO annotations(image_id,type,class_id,data,confidence) VALUES (?,?,?,?,?)",
+                        [(image_row["id"], a["type"], a["class_id"],
+                          json.dumps({k: v for k, v in a.items() if k not in ("type", "class_id", "confidence")}),
+                          a["confidence"]) for a in anns],
+                    )
+                    (p / "labels" / f"{target.stem}.txt").write_text(
+                        "\n".join(" ".join(line.split()) for line in label_text.splitlines() if line.strip()) + "\n",
+                        encoding="utf-8")
+                    annotated += 1
     con.commit()
     con.close()
-    return {"added": added, "skipped": skipped}
+    return {"added": added, "skipped": skipped, "annotated": annotated}
 
 
 def list_images(project: str, query: str = "", only_unannotated: bool = False,
