@@ -1,6 +1,7 @@
 """Local YOLO model loading + inference. Optional — works without torch installed."""
 from __future__ import annotations
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 from .project_manager import BASE_DIR, project_path, load_classes
@@ -9,6 +10,7 @@ MODELS_DIR = BASE_DIR / "models"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 _MODEL_CACHE: dict[str, Any] = {}
+_MODEL_LOCK = RLock()
 
 
 def device_info() -> dict:
@@ -42,15 +44,34 @@ def load_model(path: str):
     from ultralytics import SAM, YOLO  # lazy import
     is_sam = Path(path).name.lower().startswith("sam2")
     key = ("sam:" if is_sam else "yolo:") + str(Path(path).resolve())
-    if key not in _MODEL_CACHE:
-        _MODEL_CACHE[key] = SAM(path) if is_sam else YOLO(path)
-    return _MODEL_CACHE[key]
+    # Ultralytics initializes and mutates its predictor lazily on predict().
+    # Serialize cache access; callers hold the same reentrant lock through
+    # inference so two requests cannot initialize/use one predictor at once.
+    with _MODEL_LOCK:
+        if key not in _MODEL_CACHE:
+            _MODEL_CACHE[key] = SAM(path) if is_sam else YOLO(path)
+        return _MODEL_CACHE[key]
 
 
 def warm_model(path: str) -> dict:
     """Load a model into the process cache before the first user prompt."""
     load_model(path)
     return {"path": path, "ready": True}
+
+
+def delete_model(path: str) -> Path:
+    """Delete one local checkpoint without allowing paths outside models/."""
+    target = Path(path).resolve()
+    if target.parent != MODELS_DIR.resolve() or target.suffix.lower() != ".pt":
+        raise ValueError("Only .pt files in the local models folder can be deleted")
+    with _MODEL_LOCK:
+        if not target.is_file():
+            raise FileNotFoundError(target.name)
+        target.unlink()
+        for key in list(_MODEL_CACHE):
+            if key.partition(":")[2] == str(target):
+                _MODEL_CACHE.pop(key, None)
+    return target
 
 
 def autolabel_image(project: str, filename: str, model_path: str,
@@ -62,13 +83,14 @@ def autolabel_image(project: str, filename: str, model_path: str,
     """Runs YOLO on one image and returns normalized box or polygon annotations."""
     from .dataset_manager import get_image_path
     img_path = get_image_path(project, filename)
-    model = load_model(model_path)
-    if device:
-        try:
-            model.to(device)
-        except Exception:
-            pass
-    results = model.predict(str(img_path), conf=conf, iou=iou, verbose=False)
+    with _MODEL_LOCK:
+        model = load_model(model_path)
+        if device:
+            try:
+                model.to(device)
+            except Exception:
+                pass
+        results = model.predict(str(img_path), conf=conf, iou=iou, verbose=False)
     if not results:
         return []
     r = results[0]
@@ -138,12 +160,6 @@ def smart_select_image(project: str, filename: str, model_path: str,
     img_path = get_image_path(project, filename)
     with Image.open(img_path) as image:
         width, height = image.size
-    model = load_model(model_path)
-    if device:
-        try:
-            model.to(device)
-        except Exception:
-            pass
     prompt = {}
     if box is not None:
         if len(box) != 4:
@@ -162,7 +178,14 @@ def smart_select_image(project: str, filename: str, model_path: str,
         prompt["labels"] = [1]
     else:
         raise ValueError("smart selection requires a point or box")
-    results = model.predict(str(img_path), verbose=False, **prompt)
+    with _MODEL_LOCK:
+        model = load_model(model_path)
+        if device:
+            try:
+                model.to(device)
+            except Exception:
+                pass
+        results = model.predict(str(img_path), verbose=False, **prompt)
     if not results or results[0].masks is None:
         return []
     out = []
