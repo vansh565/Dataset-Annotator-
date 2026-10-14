@@ -61,6 +61,32 @@
     importZip: function (p, zip) {
       return req("POST", "/api/projects/" + p + "/import", { zip: zip });
     },
+    previewVideo: async function (p, formData) {
+      const response = await fetch("/api/projects/" + encodeURIComponent(p) + "/video/preview", {
+        method: "POST", body: formData
+      });
+      if (!response.ok) {
+        let message = "HTTP " + response.status;
+        try { const error = await response.json(); if (error.error) message = error.error; }
+        catch (ignored) { /* response did not contain JSON */ }
+        throw new Error(message);
+      }
+      return response.json();
+    },
+    importVideoFrames: function (p, sessionId, frameIds) {
+      return req("POST", "/api/projects/" + encodeURIComponent(p) + "/video/frames", {
+        session_id: sessionId, frame_ids: frameIds
+      });
+    },
+    videoPreviews: function (p) {
+      return req("GET", "/api/projects/" + encodeURIComponent(p) + "/video/previews");
+    },
+    videoPreview: function (p, sessionId) {
+      return req("GET", "/api/projects/" + encodeURIComponent(p) + "/video/previews/" + encodeURIComponent(sessionId));
+    },
+    discardVideoPreview: function (p, sessionId) {
+      return req("DELETE", "/api/projects/" + encodeURIComponent(p) + "/video/previews/" + encodeURIComponent(sessionId));
+    },
     deleteImages: function (p, files) {
       return req("DELETE", "/api/projects/" + p + "/images", { files: files });
     },
@@ -147,6 +173,9 @@
 
     device: function () { return req("GET", "/api/device"); },
     models: function () { return req("GET", "/api/models"); },
+    deleteModel: function (modelName) {
+      return req("DELETE", "/api/models/" + encodeURIComponent(modelName));
+    },
     warmModel: function (modelPath) {
       return req("POST", "/api/models/warm", { model_path: modelPath });
     },
@@ -163,6 +192,28 @@
     },
     listTags: function (p) { return req("GET", "/api/projects/" + p + "/tags"); },
     jobs: function () { return req("GET", "/api/jobs"); },
+    jobStatus: function (jobId) {
+      return req("GET", "/api/jobs/" + encodeURIComponent(jobId));
+    },
+    stopTraining: function (jobId) {
+      return req("POST", "/api/jobs/" + encodeURIComponent(jobId) + "/stop", {});
+    },
+    startTraining: function (p, options) {
+      return req("POST", "/api/projects/" + encodeURIComponent(p) + "/train", options);
+    },
+    evaluateModel: function (p, options) {
+      return req("POST", "/api/projects/" + encodeURIComponent(p) + "/eval", options);
+    },
+    testModel: async function (formData) {
+      const response = await fetch("/api/model-test", { method: "POST", body: formData });
+      if (!response.ok) {
+        let message = "HTTP " + response.status;
+        try { const error = await response.json(); if (error.error) message = error.error; }
+        catch (ignored) { /* response did not contain JSON */ }
+        throw new Error(message);
+      }
+      return response.json();
+    },
 
     imageUrl: function (p, f) {
       return "/api/projects/" + p + "/image-file/" + encodeURIComponent(f);
