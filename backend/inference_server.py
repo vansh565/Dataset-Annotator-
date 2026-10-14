@@ -20,6 +20,14 @@ def load(path: str) -> dict:
     return {"path": path, "names": _STATE["names"]}
 
 
+def unload_path(path: str) -> None:
+    """Release the active inference model if it came from this checkpoint."""
+    from pathlib import Path
+    active = _STATE.get("path")
+    if active and Path(active).resolve() == Path(path).resolve():
+        _STATE.update({"model": None, "path": None, "names": {}})
+
+
 @app.get("/health")
 def health():
     return jsonify({"loaded": _STATE["model"] is not None, "path": _STATE["path"],
