@@ -285,7 +285,8 @@ label.fld{display:flex;flex-direction:column;gap:4px;font-size:var(--fs-2);
   box-shadow:0 10px 26px rgba(17,20,25,0.25); backdrop-filter:blur(2px);
 }
 .smart-select-panel.hidden{display:none}
-.smart-select-header{display:flex;align-items:center;justify-content:space-between; margin-bottom:10px; font-weight:700; color:#3d3a52}
+.smart-select-header{display:flex;align-items:center;justify-content:space-between; margin-bottom:10px; font-weight:700; color:#3d3a52; cursor:grab; touch-action:none; user-select:none}
+.smart-select-header:active{cursor:grabbing}
 .smart-select-title{font-size:19px; letter-spacing:-0.02em}
 .smart-select-close{border:none; background:transparent; color:#4b4f59; font-size:22px; line-height:1; cursor:pointer; padding:0}
 .smart-select-row{margin-bottom:10px}
