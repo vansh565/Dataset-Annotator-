@@ -284,6 +284,38 @@
     host.querySelectorAll("[data-tool]").forEach(function (b) {
       b.onclick = function () { setTool(b.dataset.tool); };
     });
+    const smartPanel = document.getElementById("smart-select-panel");
+    const smartHeader = smartPanel.querySelector(".smart-select-header");
+    smartHeader.addEventListener("pointerdown", function (event) {
+      if (event.target.closest("button")) return;
+      const parent = smartPanel.parentElement;
+      const parentRect = parent.getBoundingClientRect();
+      const panelRect = smartPanel.getBoundingClientRect();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startLeft = panelRect.left - parentRect.left;
+      const startTop = panelRect.top - parentRect.top;
+      smartPanel.style.right = "auto";
+      smartPanel.setPointerCapture(event.pointerId);
+      event.preventDefault();
+
+      function move(moveEvent) {
+        const maxLeft = Math.max(0, parent.clientWidth - smartPanel.offsetWidth);
+        const maxTop = Math.max(0, parent.clientHeight - smartPanel.offsetHeight);
+        const left = Math.max(0, Math.min(maxLeft, startLeft + moveEvent.clientX - startX));
+        const top = Math.max(0, Math.min(maxTop, startTop + moveEvent.clientY - startY));
+        smartPanel.style.left = left + "px";
+        smartPanel.style.top = top + "px";
+      }
+      function stop() {
+        smartPanel.removeEventListener("pointermove", move);
+        smartPanel.removeEventListener("pointerup", stop);
+        smartPanel.removeEventListener("pointercancel", stop);
+      }
+      smartPanel.addEventListener("pointermove", move);
+      smartPanel.addEventListener("pointerup", stop);
+      smartPanel.addEventListener("pointercancel", stop);
+    });
     document.getElementById("smart-select-close").onclick = function () {
       setTool("box");
     };
@@ -343,22 +375,33 @@
     }
 
     // --- Load image --------------------------------------------
+    let imageLoadSequence = 0;
     async function loadImage(filename) {
       if (!filename) return;
+      // The editor can be replaced while async navigation or a queued keyboard
+      // event is still running. Ignore stale calls after its DOM has been removed.
+      const title = document.getElementById("an-title");
+      const subtitle = document.getElementById("an-sub");
+      if (!title || !subtitle) return;
+      const loadSequence = ++imageLoadSequence;
       state.currentImage = filename;
 
       const empty = document.getElementById("an-empty");
       if (empty) empty.classList.add("hidden");
 
-      document.getElementById("an-title").textContent = filename;
-      document.getElementById("an-title").title = filename;
-      document.getElementById("an-sub").textContent = state.project || "";
+      title.textContent = filename;
+      title.title = filename;
+      subtitle.textContent = state.project || "";
       imageSplitSelect.value = "";
       try {
         const matching = await window.API.listImages(state.project, filename);
+        if (loadSequence !== imageLoadSequence) return;
         const current = matching.find(function (image) { return image.filename === filename; });
         if (current) imageSplitSelect.value = current.dataset_split || "";
-      } catch (e) { console.warn("[annotate] could not load image split", e); }
+      } catch (e) {
+        if (loadSequence !== imageLoadSequence) return;
+        console.warn("[annotate] could not load image split", e);
+      }
 
       canvas.setClasses(state.classes);
 
@@ -368,11 +411,13 @@
 
       try {
         const anns = await window.API.getAnnotations(state.project, filename);
+        if (loadSequence !== imageLoadSequence) return;
         anns.forEach(function (a) {
           if (!a.id) a.id = "a" + Math.random().toString(36).slice(2, 9);
         });
         canvas.setAnnotations(anns);
       } catch (e) {
+        if (loadSequence !== imageLoadSequence) return;
         console.warn("[annotate] could not load annotations:", e);
         canvas.setAnnotations([]);
       }
@@ -812,6 +857,8 @@
 
     // --- Keyboard ----------------------------------------------
     const kh = function (e) {
+      // This listener outlives the editor when the router swaps pages.
+      if (!document.getElementById("an-title")) return;
       const tag = (e.target.tagName || "").toLowerCase();
       if (tag === "input" || tag === "textarea" ||
           tag === "select" || e.target.isContentEditable) return;
