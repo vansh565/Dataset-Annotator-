@@ -28,6 +28,9 @@ def _db(name: str) -> sqlite3.Connection:
     if "dataset_split" not in columns:
         con.execute("ALTER TABLE images ADD COLUMN dataset_split TEXT")
         con.commit()
+    if "classification_brand" not in columns:
+        con.execute("ALTER TABLE images ADD COLUMN classification_brand TEXT")
+        con.commit()
     return con
 
 
@@ -255,6 +258,17 @@ def set_dataset_split(project: str, filename: str, split: str | None) -> None:
     con = _db(project)
     cur = con.execute("UPDATE images SET dataset_split=? WHERE filename=?",
                       (split, filename))
+    if cur.rowcount == 0:
+        con.close()
+        raise FileNotFoundError(filename)
+    con.commit()
+    con.close()
+
+
+def set_classification_brand(project: str, filename: str, brand: str | None) -> None:
+    con = _db(project)
+    cur = con.execute("UPDATE images SET classification_brand=? WHERE filename=?",
+                      (brand, filename))
     if cur.rowcount == 0:
         con.close()
         raise FileNotFoundError(filename)
