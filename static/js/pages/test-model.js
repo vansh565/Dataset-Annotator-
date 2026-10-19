@@ -5,6 +5,7 @@
 
   window.Pages["test-model"] = function (host) {
     const U = window.UI;
+    const state = window.__state;
     host.innerHTML = `
       <div class="page">
         <div class="page-head">
@@ -54,7 +55,7 @@
     const detectionBox = document.getElementById("test-model-detections");
     const params = new URLSearchParams(window.location.search);
 
-    window.API.models().then(function (models) {
+    window.API.models(state.project).then(function (models) {
       const eligible = models.filter(function (model) {
         return model.name.toLowerCase().endsWith(".pt") &&
           model.kind !== "sam" && model.name.toLowerCase().indexOf("sam") !== 0;
