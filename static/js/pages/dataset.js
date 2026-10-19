@@ -11,6 +11,7 @@
       query: "", unannotated: false, annotationStatus: "", split: "", reviewed: null,
       selected: new Set(), sort: "name"
     };
+    let classificationConfig = { enabled: false, brands: [] };
 
     host.innerHTML = `
       <div class="page">
@@ -629,6 +630,30 @@
         split.onclick = function (event) { event.stopPropagation(); };
         meta.appendChild(split);
 
+        if (classificationConfig.enabled) {
+          const brand = document.createElement("select");
+          brand.className = "input image-split-select";
+          brand.setAttribute("aria-label", "Verified classification brand");
+          brand.innerHTML = '<option value="">No verified brand</option>' +
+            classificationConfig.brands.map(function (name) {
+              const option = document.createElement("option");
+              option.value = name;
+              option.textContent = name;
+              return option.outerHTML;
+            }).join("");
+          brand.value = img.classification_brand || "";
+          brand.onchange = async function (event) {
+            event.stopPropagation();
+            try {
+              await window.API.setClassificationBrand(state.project, img.filename, brand.value);
+              img.classification_brand = brand.value || null;
+              U.toast(brand.value ? "Verified brand set to " + brand.value : "Verified brand cleared", "ok");
+            } catch (e) { U.toast("Could not set brand: " + e.message, "err"); }
+          };
+          brand.onclick = function (event) { event.stopPropagation(); };
+          meta.appendChild(brand);
+        }
+
         card.appendChild(thumb);
         card.appendChild(meta);
 
@@ -676,6 +701,12 @@
     }
 
     loadVideoLibrary();
+    if (state.project) {
+      window.API.getClassificationConfig(state.project).then(function (config) {
+        classificationConfig = config;
+        render();
+      }).catch(function (e) { console.warn("Could not load classification settings", e); });
+    }
     refresh();
   };
 })();
