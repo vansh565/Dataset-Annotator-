@@ -392,6 +392,15 @@
       title.textContent = filename;
       title.title = filename;
       subtitle.textContent = state.project || "";
+      // Keep the canvas image and its annotations paired while the next
+      // image's data is loading.
+      canvas.setAnnotations([]);
+      history.length = 0;
+      future.length = 0;
+      canvas.setClasses(state.classes);
+      const url = window.API.imageUrl(state.project, filename);
+      console.log("[annotate] loading", url);
+      canvas.setImage(url);
       imageSplitSelect.value = "";
       try {
         const matching = await window.API.listImages(state.project, filename);
@@ -402,12 +411,6 @@
         if (loadSequence !== imageLoadSequence) return;
         console.warn("[annotate] could not load image split", e);
       }
-
-      canvas.setClasses(state.classes);
-
-      const url = window.API.imageUrl(state.project, filename);
-      console.log("[annotate] loading", url);
-      canvas.setImage(url);
 
       try {
         const anns = await window.API.getAnnotations(state.project, filename);
@@ -421,8 +424,6 @@
         console.warn("[annotate] could not load annotations:", e);
         canvas.setAnnotations([]);
       }
-      history.length = 0;
-      future.length = 0;
       refreshProps();
     }
 
@@ -457,10 +458,13 @@
     }
     function autosave() {
       if (!state.project || !state.currentImage) return;
+      const project = state.project;
+      const filename = state.currentImage;
+      const annotations = JSON.parse(JSON.stringify(canvas.annotations));
       clearTimeout(saveTimer);
       saveTimer = setTimeout(async function () {
         try {
-          await saveNow();
+          await window.API.saveAnnotations(project, filename, annotations);
         } catch (e) {
           U.toast("Save failed: " + e.message, "err");
         }
@@ -757,7 +761,7 @@
 
     async function runAutoAnnotation(segmentation) {
       if (!state.currentImage) return U.toast("Open an image first", "warn");
-      const models = await window.API.models();
+      const models = await window.API.models(state.project);
       if (!models.length) return U.toast("No .pt models in ./models/", "warn");
       const idx = parseInt(prompt("Model index:\n" +
         models.map(function (m, i) { return i + ": " + m.name; }).join("\n")), 10);
@@ -791,7 +795,7 @@
     };
 
     async function startSmartSelection() {
-      const models = await window.API.models();
+      const models = await window.API.models(state.project);
       const samModels = models.filter(function (model) {
         return model.kind === "sam" || model.name.toLowerCase().indexOf("sam2") === 0;
       });
