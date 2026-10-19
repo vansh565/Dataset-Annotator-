@@ -41,6 +41,7 @@ def _init_db(p: Path) -> None:
             size_bytes INTEGER,
             reviewed INTEGER DEFAULT 0,
             dataset_split TEXT,
+            classification_brand TEXT,
             notes TEXT DEFAULT '',
             added_at REAL
         );
