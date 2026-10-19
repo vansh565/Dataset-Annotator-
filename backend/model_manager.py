@@ -1,6 +1,7 @@
 """Local YOLO model loading + inference. Optional — works without torch installed."""
 from __future__ import annotations
 from pathlib import Path
+import re
 from threading import RLock
 from typing import Any
 
@@ -23,10 +24,19 @@ def device_info() -> dict:
         return {"device": "cpu", "name": "CPU (torch not installed)"}
 
 
-def list_models() -> list[dict]:
+_TRAINED_MODEL_RE = re.compile(r"^(?P<project>.+)_v\d+_[a-f0-9]{12}$", re.IGNORECASE)
+
+
+def _trained_project(filename: str) -> str | None:
+    match = _TRAINED_MODEL_RE.match(Path(filename).stem)
+    return match.group("project") if match else None
+
+
+def list_models(project: str | None = None) -> list[dict]:
     models = [
         {"name": f.name, "path": str(f), "size": f.stat().st_size}
         for f in sorted(MODELS_DIR.glob("*.pt"))
+        if project is None or _trained_project(f.name) in (None, project)
     ]
     if not any(m["name"].lower() == "sam2.1_l.pt" for m in models):
         models.append({
@@ -38,6 +48,16 @@ def list_models() -> list[dict]:
             "description": "SAM 2.1 Large; downloads on first use",
         })
     return models
+
+
+def delete_project_model(project: str, name: str) -> Path:
+    target = (MODELS_DIR / name).resolve()
+    if target.parent != MODELS_DIR.resolve() or target.suffix.lower() != ".pt":
+        raise ValueError("Only .pt files in the local models folder can be deleted")
+    owner = _trained_project(target.name)
+    if owner is not None and owner != project:
+        raise ValueError("That model belongs to another project")
+    return delete_model(str(target))
 
 
 def load_model(path: str):
