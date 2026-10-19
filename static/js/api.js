@@ -98,6 +98,44 @@
       return req("POST", "/api/projects/" + p + "/dataset-split",
         { filename: filename, split: split || null });
     },
+    getClassificationConfig: function (p) {
+      return req("GET", "/api/projects/" + encodeURIComponent(p) + "/classification");
+    },
+    saveClassificationConfig: function (p, config) {
+      return req("PUT", "/api/projects/" + encodeURIComponent(p) + "/classification", config);
+    },
+    setClassificationBrand: function (p, filename, brand) {
+      return req("POST", "/api/projects/" + encodeURIComponent(p) + "/classification/brand",
+        { filename: filename, brand: brand || null });
+    },
+    exportClassification: async function (p, options) {
+      const response = await fetch("/api/projects/" + encodeURIComponent(p) + "/export/classification", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(options || {})
+      });
+      if (!response.ok) {
+        let message = "HTTP " + response.status;
+        try { const error = await response.json(); if (error.error) message = error.error; }
+        catch (ignored) { /* response was not JSON */ }
+        throw new Error(message);
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("content-disposition") || "";
+      const match = disposition.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
+      const filename = match ? decodeURIComponent(match[1].replace(/\"/g, "")) : "classification_dataset.zip";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+      let summary = {};
+      try { summary = JSON.parse(response.headers.get("X-Classification-Summary") || "{}"); }
+      catch (ignored) { /* summary header was unavailable */ }
+      return { filename: filename, summary: summary };
+    },
     stats: function (p) {
       return req("GET", "/api/projects/" + p + "/stats");
     },
@@ -172,9 +210,13 @@
     },
 
     device: function () { return req("GET", "/api/device"); },
-    models: function () { return req("GET", "/api/models"); },
-    deleteModel: function (modelName) {
-      return req("DELETE", "/api/models/" + encodeURIComponent(modelName));
+    models: function (project) {
+      return req("GET", project ? "/api/projects/" + encodeURIComponent(project) + "/models" : "/api/models");
+    },
+    deleteModel: function (modelName, project) {
+      return req("DELETE", project
+        ? "/api/projects/" + encodeURIComponent(project) + "/models/" + encodeURIComponent(modelName)
+        : "/api/models/" + encodeURIComponent(modelName));
     },
     warmModel: function (modelPath) {
       return req("POST", "/api/models/warm", { model_path: modelPath });
