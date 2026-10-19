@@ -103,31 +103,48 @@
       const modal = document.createElement("div");
       modal.className = "modal";
       modal.innerHTML = '<div class="modal-box download-modal"><div class="download-title"><span>⇩</span><h3>Download</h3><button class="link-btn" data-close>×</button></div>' +
-        '<label class="fld">Image and annotation format<select class="input" id="download-format"><option value="yolo" selected>YOLO Dataset (.zip)</option><option value="folder">Folder Structure (.zip)</option></select></label>' +
-        '<div class="download-options"><b>Download options</b><label><input type="radio" checked> Download ZIP to computer</label><span class="muted">Downloads all images, annotations, and classes.</span></div>' +
+        '<label class="fld">Image and annotation format<select class="input" id="download-format"><option value="yolo" selected>YOLO Dataset (.zip)</option><option value="folder">Folder Structure (.zip)</option><option value="classification">Image Classification Dataset (.zip)</option></select></label>' +
+        '<div class="download-options"><b>Download options</b><label><input type="radio" checked> Download ZIP to computer</label><span class="muted" id="download-format-help">Downloads all images, annotations, and classes.</span></div>' +
         '<div class="modal-actions"><button class="btn" data-close>Cancel</button><button class="btn primary" data-confirm>Continue</button></div></div>';
       document.body.appendChild(modal);
       function close() { modal.remove(); }
       modal.querySelectorAll("[data-close]").forEach(function (button) { button.onclick = close; });
       modal.onclick = function (event) { if (event.target === modal) close(); };
+      const formatSelect = modal.querySelector("#download-format");
+      const formatHelp = modal.querySelector("#download-format-help");
+      formatSelect.onchange = function () {
+        formatHelp.textContent = formatSelect.value === "classification"
+          ? "Downloads version images into verified brand folders under train, val, and test."
+          : formatSelect.value === "folder"
+            ? "Downloads all images, annotations, and classes in folders."
+            : "Downloads all images, annotations, and classes for YOLO.";
+      };
       modal.querySelector("[data-confirm]").onclick = function () {
-        const format = modal.querySelector("#download-format").value;
+        const format = formatSelect.value;
         const href = "/api/projects/" + encodeURIComponent(state.project) +
           "/versions/" + version.id + "/download?download=1&format=" + format;
         fetch(href, { method: "POST" }).then(function (response) {
-          if (!response.ok) throw new Error("Download failed (" + response.status + ")");
+          if (!response.ok) return response.json().then(function (body) {
+            throw new Error(body.error || "Download failed (" + response.status + ")");
+          }).catch(function (error) {
+            if (error.message && error.message !== "Unexpected end of JSON input") throw error;
+            throw new Error("Download failed (" + response.status + ")");
+          });
           const contentType = response.headers.get("content-type") || "";
           if (contentType.indexOf("zip") === -1 && contentType.indexOf("octet-stream") === -1) {
             throw new Error("Server did not return a ZIP file");
           }
-          return response.blob();
-        }).then(function (blob) {
+          return response.blob().then(function (blob) { return { blob: blob, response: response }; });
+        }).then(function (download) {
           const link = document.createElement("a");
-          link.href = URL.createObjectURL(blob);
-          link.download = state.project + "_" + version.name.replace(/[^a-z0-9_-]+/gi, "_") + ".zip";
+          link.href = URL.createObjectURL(download.blob);
+          const disposition = download.response.headers.get("content-disposition") || "";
+          const nameMatch = disposition.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
+          link.download = nameMatch ? decodeURIComponent(nameMatch[1].replace(/\"/g, ""))
+            : state.project + "_" + version.name.replace(/[^a-z0-9_-]+/gi, "_") + ".zip";
           document.body.appendChild(link);
           link.click();
-          URL.revokeObjectURL(link.href);
+          setTimeout(function () { URL.revokeObjectURL(link.href); }, 60000);
           link.remove();
           close();
           U.toast("Download started", "ok");
