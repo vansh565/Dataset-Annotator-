@@ -82,7 +82,7 @@
         U.toast("Could not load versions: " + e.message, "err");
       }
       try {
-        const models = await window.API.models();
+        const models = await window.API.models(state.project);
         const eligible = models.filter(function (m) { return m.kind !== "sam"; });
         document.getElementById("tr-model-list").innerHTML = eligible.map(function (m) {
           return '<option value="' + U.escapeHtml(m.path || m.name) + '">' + U.escapeHtml(m.name) + '</option>';
@@ -143,7 +143,7 @@
             if (!window.confirm("Delete " + modelName + " from the models folder?")) return;
             button.disabled = true;
             try {
-              await window.API.deleteModel(modelName);
+              await window.API.deleteModel(modelName, state.project);
               U.toast("Deleted model: " + modelName, "ok");
               await refreshJobs();
             } catch (error) {
