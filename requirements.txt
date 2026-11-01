@@ -1,0 +1,16 @@
+# Core web app
+Flask>=3.0
+flask-cors>=4.0
+Werkzeug>=3.0
+
+# Image, video and dataset handling
+numpy>=1.24
+Pillow>=10.0
+PyYAML>=6.0
+opencv-python>=4.8
+
+# AI features: detection, SAM tools, tracking, training, evaluation.
+# 8.4+ is needed for the YOLO26 weights (yolo26n.pt).
+# Ultralytics pulls in PyTorch; for NVIDIA GPU support, install the CUDA build
+# of torch first from https://pytorch.org/get-started/locally/
+ultralytics>=8.4
