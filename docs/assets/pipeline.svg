@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="224" viewBox="0 0 1200 224" role="img" aria-labelledby="title desc">
+  <title id="title">The Vertex pipeline</title>
+  <desc id="desc">Six stages light up in turn: Import, Annotate, Quality, Version, Train, Export.</desc>
+  <defs>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4f8cff"/>
+      <stop offset=".5" stop-color="#5fd0e8"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <style>
+    .sans { font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+    .node { fill: #13161c; stroke: #272c35; stroke-width: 1.5; animation: lit 6s ease-out infinite; }
+    .icon { fill: none; stroke: #5fd0e8; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .chev { fill: none; stroke: #4f8cff; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; animation: chev 6s ease-in-out infinite; opacity: .25; }
+    .n1 { animation-delay: 0s; } .n2 { animation-delay: 1s; } .n3 { animation-delay: 2s; }
+    .n4 { animation-delay: 3s; } .n5 { animation-delay: 4s; } .n6 { animation-delay: 5s; }
+    .c1 { animation-delay: .8s; } .c2 { animation-delay: 1.8s; } .c3 { animation-delay: 2.8s; }
+    .c4 { animation-delay: 3.8s; } .c5 { animation-delay: 4.8s; }
+    @keyframes lit { 0% { fill: #16203a; stroke: #4f8cff; } 15% { fill: #16203a; stroke: #4f8cff; } 22%, 100% { fill: #13161c; stroke: #272c35; } }
+    @keyframes chev { 0% { opacity: .25; } 5% { opacity: 1; } 15%, 100% { opacity: .25; } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+
+  <rect width="1200" height="224" rx="16" fill="#0d0f13"/>
+  <rect x=".5" y=".5" width="1199" height="223" rx="16" fill="none" stroke="#232831"/>
+  <text x="40" y="36" class="sans" font-size="12" font-weight="700" fill="#565e6c" letter-spacing="3">THE VERTEX PIPELINE</text>
+
+  <!-- Chevrons between stages -->
+  <g transform="translate(216 110)"><path class="chev c1" d="M-5 -8 L4 0 L-5 8"/></g>
+  <g transform="translate(408 110)"><path class="chev c2" d="M-5 -8 L4 0 L-5 8"/></g>
+  <g transform="translate(600 110)"><path class="chev c3" d="M-5 -8 L4 0 L-5 8"/></g>
+  <g transform="translate(792 110)"><path class="chev c4" d="M-5 -8 L4 0 L-5 8"/></g>
+  <g transform="translate(984 110)"><path class="chev c5" d="M-5 -8 L4 0 L-5 8"/></g>
+
+  <g class="sans" text-anchor="middle">
+    <!-- 1 Import -->
+    <rect class="node n1" x="40" y="60" width="160" height="100" rx="14"/>
+    <g class="icon" transform="translate(120 88)"><path d="M-10 2v8h20v-8M0 -12V4M-6 -2L0 4L6 -2"/></g>
+    <text x="120" y="128" font-size="15" font-weight="700" fill="#e9ecf1">Import</text>
+    <text x="120" y="148" font-size="12" fill="#7a8290">images · folders · ZIP</text>
+
+    <!-- 2 Annotate -->
+    <rect class="node n2" x="232" y="60" width="160" height="100" rx="14"/>
+    <g class="icon" transform="translate(312 88)"><path d="M-10 -10h20v20h-20z" stroke-dasharray="4 3"/><circle cx="-10" cy="-10" r="2.5" fill="#5fd0e8"/><circle cx="10" cy="10" r="2.5" fill="#5fd0e8"/></g>
+    <text x="312" y="128" font-size="15" font-weight="700" fill="#e9ecf1">Annotate</text>
+    <text x="312" y="148" font-size="12" fill="#7a8290">box · polygon · OBB</text>
+
+    <!-- 3 Quality -->
+    <rect class="node n3" x="424" y="60" width="160" height="100" rx="14"/>
+    <g class="icon" transform="translate(504 88)"><circle r="11"/><path d="M-5 0l3.5 3.5L6 -4"/></g>
+    <text x="504" y="128" font-size="15" font-weight="700" fill="#e9ecf1">Quality</text>
+    <text x="504" y="148" font-size="12" fill="#7a8290">checks · analytics</text>
+
+    <!-- 4 Version -->
+    <rect class="node n4" x="616" y="60" width="160" height="100" rx="14"/>
+    <g class="icon" transform="translate(696 86)"><path d="M0 -10L11 -4L0 2L-11 -4Z M-11 1L0 7L11 1 M-11 6L0 12L11 6"/></g>
+    <text x="696" y="128" font-size="15" font-weight="700" fill="#e9ecf1">Version</text>
+    <text x="696" y="148" font-size="12" fill="#7a8290">snapshot + splits</text>
+
+    <!-- 5 Train -->
+    <rect class="node n5" x="808" y="60" width="160" height="100" rx="14"/>
+    <g class="icon" transform="translate(888 88)"><path d="M2 -12L-8 2H0L-2 12L8 -2H0Z"/></g>
+    <text x="888" y="128" font-size="15" font-weight="700" fill="#e9ecf1">Train</text>
+    <text x="888" y="148" font-size="12" fill="#7a8290">YOLO · Ultralytics</text>
+
+    <!-- 6 Export -->
+    <rect class="node n6" x="1000" y="60" width="160" height="100" rx="14"/>
+    <g class="icon" transform="translate(1080 88)"><path d="M-10 2v8h20v-8M0 4V-12M-6 -6L0 -12L6 -6"/></g>
+    <text x="1080" y="128" font-size="15" font-weight="700" fill="#e9ecf1">Export</text>
+    <text x="1080" y="148" font-size="12" fill="#7a8290">YOLO · COCO · VOC · CSV</text>
+  </g>
+
+  <!-- Progress track -->
+  <rect x="40" y="188" width="1120" height="4" rx="2" fill="#1a1f27"/>
+  <rect x="40" y="188" width="1120" height="4" rx="2" fill="url(#bar)">
+    <animate attributeName="width" values="0;1120" dur="6s" repeatCount="indefinite"/>
+  </rect>
+  <circle r="5" cx="0" cy="0" fill="#e9ecf1">
+    <animateMotion path="M40 190 H1160" dur="6s" repeatCount="indefinite"/>
+  </circle>
+</svg>
