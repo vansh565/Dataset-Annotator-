@@ -1,0 +1,6 @@
+app.py
+backend/
+requirements.txt
+__pycache__/
+*.pyc
+projects/
